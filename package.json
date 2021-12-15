@@ -1,0 +1,49 @@
+{
+  "name": "Poligonalia",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.3.2",
+    "@testing-library/user-event": "^7.1.2",
+    "bootstrap": "^5.1.3",
+    "chess.js": "^0.12.0",
+    "ethers": "^5.5.2",
+    "firebase": "^9.6.1",
+    "react": "^16.13.1",
+    "react-bootstrap": "^2.0.3",
+    "react-dnd": "^14.0.4",
+    "react-dnd-html5-backend": "^14.0.2",
+    "react-dom": "^16.13.1",
+    "react-firebase-hooks": "^4.0.1",
+    "react-router-dom": "^6.0.2",
+    "react-scripts": "3.4.3",
+    "rxfire": "^6.0.3",
+    "rxjs": "^6.6.7"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

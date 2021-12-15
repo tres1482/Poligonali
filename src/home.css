@@ -1,0 +1,13 @@
+.bg-myRed{
+    background-color: yellowgreen;
+}
+
+.Nav{
+    align-items: center;
+}
+
+.logo{
+    text-align: left;
+    height: 60px;
+    width: 60px;
+}
