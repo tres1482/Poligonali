@@ -11,3 +11,9 @@
     height: 60px;
     width: 60px;
 }
+.modal-content {
+    width: 40%;
+}
+.card {
+    padding: 5%;
+}

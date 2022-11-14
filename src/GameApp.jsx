@@ -3,14 +3,15 @@ import './App.css'
 import { gameSubject, initGame, resetGame } from './Game'
 import Board from './Board'
 import { useParams, useNavigate } from 'react-router-dom'
-import { db } from './firebase'
+import { auth, db } from './firebase'
 import { ethers } from 'ethers'
 import abi from './utils/Chess.json';
 
-const contractAddress = "0x7ea65874ebe85f1a6a7553cf69ff9d900b2280dc";
+const contractAddress = "0x9c17FCE6a0A8e14Fe6a8e314e169EBe84df66dBC";
 const contractABI = abi.abi;
 
 function GameApp() {
+  const { currentUser } = auth
   const [board, setBoard] = useState([])
   const [isGameOver, setIsGameOver] = useState()
   const [result, setResult] = useState()
@@ -25,6 +26,52 @@ function GameApp() {
   const history = useNavigate()
   const sharebleLink = window.location.href
   const BigNumber = ethers.BigNumber;
+  const [isNetworkGoerli, setIsNetworkGoerli] = useState(false);
+
+  const checkNetwork = async () => {
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if(chainId==='0x5'){
+      setIsNetworkGoerli(true);
+      console.log("Network Goerli:",chainId);
+    }
+    else {
+      setIsNetworkGoerli(false);
+      alert("Please switch to goerli network");
+      checkIfNetworkIsGoerli();
+    }
+    return chainId;
+}
+
+const checkIfNetworkIsGoerli = async () => {
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    console.log("Chain Id:",chainId);
+    if(chainId!="0x5"){
+      console.log("Network is not Goerli");
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [ {chainId: '0x5'} ]
+        });
+        setIsNetworkGoerli(true);
+      } catch (switchError) {
+        if(switchError.code===4902) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{ chainId: '0x5', chainName: 'Goerli', rpcUrls: ['https://goerli.infura.io/v3/1b2cfca946444a0abf59397e5315cd0c'] }]
+            });
+          } catch(error) {
+            console.error(error);
+          }
+        } else if(switchError.code===-32002){
+          console.error("Request Already pending");
+        }
+      }
+    } else {
+      setIsNetworkGoerli(true);
+      console.log(isNetworkGoerli);
+    }
+}
 
   async function getBidAmount() {
     if(window.ethereum) {
@@ -34,6 +81,7 @@ function GameApp() {
         const signer = provider.getSigner();
         const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
         const bidAmount = await chessContract.getBidAmountFromLink(game.id).then((result) => {return result;});
+        console.log("Bid Amount:",bidAmount);
         setGameBidAmount(bidAmount.toString());
         return gameBidAmount;
       }
@@ -48,15 +96,28 @@ function GameApp() {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
-        const isInGame = await chessContract.isInGame(accounts[0]).then((result) => {return result;});
+        console.log(typeof accounts[0], typeof currentUser.uid);
+        const isInGame = await chessContract.isInGame(accounts[0], currentUser.uid).then((result) => {return result;});
         if(isInGame){
           console.log("Already in a game")
           return;
         }
         const bidAmount = await chessContract.getBidAmountFromLink(gameId).then((result) => {return result;});
         console.log(bidAmount);
-        const createGame = await chessContract.joinGame(gameId, {value: BigNumber.from(bidAmount)});
-        await createGame.wait();
+        const joined = false;
+        // setLoading(true);
+        // while(!joined){
+        //   try {
+            
+        //     joined = true;
+        //   }
+        //   catch{
+        //     setLoading(false);
+        //   }
+        // }
+        // setLoading(false);
+        const createGame = await chessContract.joinGame(gameId, currentUser.uid, {value: BigNumber.from(bidAmount)});
+          await createGame.wait();
         setJoin(true);
       }
     }
@@ -82,8 +143,17 @@ function GameApp() {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
-        const endGame = await chessContract.endGame(id, res, {gasLimit: 1000000});
-        await endGame.wait();
+        setLoading(true);
+        console.log("Loading:",loading);
+        try {
+          const endGame = await chessContract.endGame(id, res, {gasLimit: 1000000});
+          await endGame.wait();
+          history('/');
+        }
+        catch {
+          setLoading(false);
+        }
+
       }
       else {
         console.error("No accounts found");
@@ -95,11 +165,88 @@ function GameApp() {
     }
   }
 
+  async function checkUserInGame() {
+    const userPresentInGame = await userInGame();
+    console.log("User: ",userPresentInGame)
+    if(!userPresentInGame) {
+      joiningGame(id);
+    }
+  }
+
+  // const checkIfWalletIsConnected = async () => {
+  //   const { ethereum } = window;
+
+  //   if (!ethereum) {
+  //     console.log("Make sure you have metamask!");
+  //     return;
+  //   } else {
+  //     console.log("We have the ethereum object", ethereum);
+  //   }
+
+  //   const accounts = await ethereum.request({ method: 'eth_accounts' });
+
+  //   if (accounts.length !== 0) {
+  //         const account = accounts[0];
+  //         console.log("Found an authorized account:", account);
+  //         setCurrentAccount(account);
+  //         setupEventListener();
+  //   } 
+  //   else {
+  //         console.log("No authorized account found")
+  //   }
+  // }
+
+  const setupEventListener = async () => {
+    try {
+      const { ethereum } = window;
+
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+
+        // window.ethereum.on('accountsChanged', (accounts) => {
+        //   console.log(accounts);
+        //   if(accounts.length==0) {
+        //     setCurrentAccount("");
+        //   }
+        //   else {
+        //     setCurrentAccount(accounts[0]);
+        //   }
+        // });
+
+        window.ethereum.on('chainChanged', (chainId) => {
+          if(chainId=='0x5'){
+            setIsNetworkGoerli(true);
+          }
+          else {
+            setIsNetworkGoerli(false);
+          }
+        });
+
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+
   useEffect(() => {
-    let subscribe
+    // const bidAmt = getBidAmount();
+    // console.log(bidAmt);
+    // if(!userInGame()) {
+    //   joiningGame(id);
+    // }
+    let subscribe;
     async function init() {
+      // const isInGame = await userInGame();
+      // if(!isInGame) {
+      //   await joiningGame(id);
+      // }
+      await checkNetwork();
       const res = await initGame(id !== 'local' ? db.doc(`games/${id}`) : null);
       setInitResult(res)
+      // await getBidAmount();
       setLoading(false)
       if (!res) {
         subscribe = gameSubject.subscribe((game) => {
@@ -110,11 +257,11 @@ function GameApp() {
           setStatus(game.status)
           setGame(game)
         });
-      }
 
+      }
     }
 
-    init()
+    init();
 
     return () => subscribe && subscribe.unsubscribe()
   }, [id])
@@ -130,7 +277,8 @@ function GameApp() {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
-        const isInGame = await chessContract.isInGame(accounts[0]).then((result) => {return result;});
+        console.log("Account:", accounts[0],"\nUID:", currentUser.uid);
+        const isInGame = await chessContract.isInGame(accounts[0], currentUser.uid);
         console.log("Is in Game: ", isInGame);
         setJoin(isInGame);
       }
@@ -158,7 +306,7 @@ function GameApp() {
         <div>
           {/* {game.opponent.name} is already in the game. */}
           <br />
-          Pay {getBidAmount} ether to join the game.
+          Pay {/*gameBidAmount*/} ether to join the game.
         </div>
         <button onClick={() => {
           try{
@@ -167,6 +315,46 @@ function GameApp() {
             console.error(error);
           }
         }}>Join Game</button>
+      </div>
+    )
+  }
+  else {
+    return (
+      <div className="app-container">
+        {/* {isGameOver && (
+          <h2 className="vertical-text">
+            GAME OVER
+            <button onClick={async () => {
+              await resetGame()
+              history('/')
+            }}>
+              <span className="vertical-text"> NEW GAME</span>
+            </button>
+          </h2>
+        )} */}
+        {isGameOver && showAfterGameModal()}
+        <div className="board-container">
+          {game.oponent && game.oponent.name && <span className="tag is-link">{game.oponent.name}</span>}
+          <Board board={board} position={position} />
+          {game.member && game.member.name && <span className="tag is-link">{game.member.name}</span>}
+        </div>
+        {/* {result && <p className="vertical-text">{result}</p>} */}
+        {status === 'waiting' && (
+          <div className="notification is-link share-game">
+            <strong>Share this game to continue</strong>
+            <br />
+            <br />
+            <div className="field has-addons">
+              <div className="control is-expanded">
+                <input type="text" name="" id="" className="input" readOnly value={sharebleLink} />
+              </div>
+              <div className="control">
+                <button className="button is-info" onClick={copyToClipboard}>Copy</button>
+              </div>
+            </div>
+          </div>
+        )}
+  
       </div>
     )
   }
@@ -193,45 +381,6 @@ function GameApp() {
   }
 
   
-
-  return (
-    <div className="app-container">
-      {/* {isGameOver && (
-        <h2 className="vertical-text">
-          GAME OVER
-          <button onClick={async () => {
-            await resetGame()
-            history('/')
-          }}>
-            <span className="vertical-text"> NEW GAME</span>
-          </button>
-        </h2>
-      )} */}
-      {isGameOver && showAfterGameModal()}
-      <div className="board-container">
-        {game.oponent && game.oponent.name && <span className="tag is-link">{game.oponent.name}</span>}
-        <Board board={board} position={position} />
-        {game.member && game.member.name && <span className="tag is-link">{game.member.name}</span>}
-      </div>
-      {/* {result && <p className="vertical-text">{result}</p>} */}
-      {status === 'waiting' && (
-        <div className="notification is-link share-game">
-          <strong>Share this game to continue</strong>
-          <br />
-          <br />
-          <div className="field has-addons">
-            <div className="control is-expanded">
-              <input type="text" name="" id="" className="input" readOnly value={sharebleLink} />
-            </div>
-            <div className="control">
-              <button className="button is-info" onClick={copyToClipboard}>Copy</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
-  )
 }
 
 export default GameApp
