@@ -93,8 +93,10 @@ export default function Home() {
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
+                setLoading(true);
                 const createGame = await chessContract.createGame(gameId, ethers.utils.parseEther(bidAmount.toString()), playWhite, currentUser.uid.toString(), {value: ethers.utils.parseEther(bidAmount.toString())});
                 await createGame.wait();
+                setLoading(false);
             }
             else {
                 alert("Ethereum Object not Present");
@@ -131,8 +133,9 @@ export default function Home() {
         try {
             await creatingGame(game.gameId, bidAmount, (startingPiece==='w'));
         } catch(error) {
-            
+            setLoading(false);
             console.error(error);
+            alert(error);
             return;
         }
         await db.collection('games').doc(game.gameId).set(game)

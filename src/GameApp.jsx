@@ -73,33 +73,36 @@ const checkIfNetworkIsGoerli = async () => {
     }
 }
 
-  async function getBidAmount() {
-    if(window.ethereum) {
-      const accounts = await window.ethereum.request({method: "eth_requestAccounts"});
-      if(accounts.length!==0) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
-        const bidAmount = await chessContract.getBidAmountFromLink(game.id).then((result) => {return result;});
-        console.log("Bid Amount:",bidAmount);
-        setGameBidAmount(bidAmount.toString());
-        return gameBidAmount;
-      }
-    }
-  }
+  // async function getBidAmount() {
+  //   if(window.ethereum) {
+  //     const accounts = await window.ethereum.request({method: "eth_requestAccounts"});
+  //     if(accounts.length!==0) {
+  //       const provider = new ethers.providers.Web3Provider(window.ethereum);
+  //       const signer = provider.getSigner();
+  //       const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
+  //       const bidAmount = await chessContract.getBidAmountFromLink(game.id).then((result) => {return result;});
+  //       console.log("Bid Amount:",bidAmount);
+  //       setGameBidAmount(bidAmount.toString());
+  //       return gameBidAmount;
+  //     }
+  //   }
+  // }
 
   async function joiningGame(gameId) {
     console.log('joiningGame');
     if(window.ethereum) {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       if(accounts.length!==0){
+        setLoading(true);
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const chessContract = new ethers.Contract(contractAddress, contractABI, signer);
         console.log(typeof accounts[0], typeof currentUser.uid);
         const isInGame = await chessContract.isInGame(accounts[0], currentUser.uid).then((result) => {return result;});
         if(isInGame){
-          console.log("Already in a game")
+          console.log("Already in a game");
+          alert("Already in a Game");
+          setLoading(false);
           return;
         }
         const bidAmount = await chessContract.getBidAmountFromLink(gameId).then((result) => {return result;});
@@ -119,6 +122,7 @@ const checkIfNetworkIsGoerli = async () => {
         const createGame = await chessContract.joinGame(gameId, currentUser.uid, {value: BigNumber.from(bidAmount)});
           await createGame.wait();
         setJoin(true);
+        setLoading(false);
       }
     }
     else {
@@ -165,34 +169,11 @@ const checkIfNetworkIsGoerli = async () => {
     }
   }
 
-  async function checkUserInGame() {
-    const userPresentInGame = await userInGame();
-    console.log("User: ",userPresentInGame)
-    if(!userPresentInGame) {
-      joiningGame(id);
-    }
-  }
-
-  // const checkIfWalletIsConnected = async () => {
-  //   const { ethereum } = window;
-
-  //   if (!ethereum) {
-  //     console.log("Make sure you have metamask!");
-  //     return;
-  //   } else {
-  //     console.log("We have the ethereum object", ethereum);
-  //   }
-
-  //   const accounts = await ethereum.request({ method: 'eth_accounts' });
-
-  //   if (accounts.length !== 0) {
-  //         const account = accounts[0];
-  //         console.log("Found an authorized account:", account);
-  //         setCurrentAccount(account);
-  //         setupEventListener();
-  //   } 
-  //   else {
-  //         console.log("No authorized account found")
+  // async function checkUserInGame() {
+  //   const userPresentInGame = await userInGame();
+  //   console.log("User: ",userPresentInGame)
+  //   if(!userPresentInGame) {
+  //     joiningGame(id);
   //   }
   // }
 
@@ -237,6 +218,7 @@ const checkIfNetworkIsGoerli = async () => {
     // if(!userInGame()) {
     //   joiningGame(id);
     // }
+    setupEventListener();
     let subscribe;
     async function init() {
       // const isInGame = await userInGame();
